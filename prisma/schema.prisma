@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYE
+  TECHNICIEN_IT
+  ADMINISTRATEUR
+}
+
+enum StatutTicket {
+  NOUVEAU_NON_VU
+  NOUVEAU_VU
+  EN_COURS
+  RESOLU
+  FERME
+}
+
+enum Priorite {
+  BASSE
+  MOYENNE
+  HAUTE
+  CRITIQUE
+}
+
+enum VisibiliteCommentaire {
+  PUBLIC
+  PRIVE
+}
+
+model Utilisateur {
+  id              Int            @id @default(autoincrement())
+  nom             String
+  prenom          String
+  email           String         @unique
+  motDePasse      String
+  telephone       String?
+  statutActif     Boolean        @default(true)
+  dateCreation    DateTime       @default(now())
+  role            Role           @default(EMPLOYE)
+
+  // Sub-type specific fields (Optional)
+  poste           String?        // For Employe
+  specialite      String?        // For TechnicienIT
+  disponible      Boolean?       @default(true) // For TechnicienIT
+  niveauPrivilege String?        // For Administrateur
+
+  departementId   Int?
+  departement     Departement?   @relation(fields: [departementId], references: [id])
+
+  ticketsDeclares Ticket[]       @relation("EmployeTickets")
+  ticketsAssignes Ticket[]       @relation("TechnicienTickets")
+  commentaires    Commentaire[]
+  notifications   Notification[]
+}
+
+model Departement {
+  id           Int           @id @default(autoincrement())
+  nom          String        @unique
+  codeBureau   String
+  utilisateurs Utilisateur[]
+  tickets      Ticket[]
+}
+
+model Categorie {
+  id          Int      @id @default(autoincrement())
+  nom         String   @unique
+  description String?
+  tickets     Ticket[]
+}
+
+model Ticket {
+  id             Int             @id @default(autoincrement())
+  titre          String
+  description    String
+  priorite       Priorite        @default(MOYENNE)
+  statut         StatutTicket    @default(NOUVEAU_NON_VU)
+  dateCreation   DateTime        @default(now())
+  dateResolution DateTime?
+  dateCloture    DateTime?
+
+  employeId      Int
+  employe        Utilisateur     @relation("EmployeTickets", fields: [employeId], references: [id])
+
+  technicienId   Int?
+  technicien     Utilisateur?    @relation("TechnicienTickets", fields: [technicienId], references: [id])
+
+  departementId  Int?
+  departement    Departement?    @relation(fields: [departementId], references: [id])
+
+  categorieId    Int?
+  categorie      Categorie?      @relation(fields: [categorieId], references: [id])
+
+  fichiersJoints FichierJoint[]
+  commentaires   Commentaire[]
+}
+
+model FichierJoint {
+  id           Int      @id @default(autoincrement())
+  nomFichier   String
+  cheminFichier String
+  typeFichier  String
+  tailleOctets BigInt
+  dateUpload   DateTime @default(now())
+
+  ticketId     Int
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+model Commentaire {
+  id           Int                   @id @default(autoincrement())
+  contenu      String
+  visibilite   VisibiliteCommentaire @default(PUBLIC)
+  dateCreation DateTime              @default(now())
+
+  ticketId     Int
+  ticket       Ticket                @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  auteurId     Int
+  auteur       Utilisateur           @relation(fields: [auteurId], references: [id])
+}
+
+model Notification {
+  id           Int         @id @default(autoincrement())
+  message      String
+  estLue       Boolean     @default(false)
+  dateEnvoi    DateTime    @default(now())
+
+  utilisateurId Int
+  utilisateur  Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+}
