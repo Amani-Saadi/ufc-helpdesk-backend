@@ -6,6 +6,7 @@ export const consulterMesNotifications = async (req, res, next) => {
     const notifications = await prisma.notification.findMany({
       where: { utilisateurId: req.user.id },
       orderBy: { dateEnvoi: 'desc' },
+      take: 20,
     });
 
     res.status(200).json({ status: 'success', data: notifications });
@@ -14,7 +15,7 @@ export const consulterMesNotifications = async (req, res, next) => {
   }
 };
 
-// marquerCommeLue()
+// marquerCommeLue
 export const marquerCommeLue = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -24,7 +25,7 @@ export const marquerCommeLue = async (req, res, next) => {
     });
 
     if (!notification) {
-      return res.status(404).json({ message: 'Notification non trouv�e.' });
+      return res.status(404).json({ message: 'Notification non trouvée.' });
     }
 
     const updatedNotification = await prisma.notification.update({
@@ -33,6 +34,20 @@ export const marquerCommeLue = async (req, res, next) => {
     });
 
     res.status(200).json({ status: 'success', data: updatedNotification });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// marquerToutesCommeLues
+export const marquerToutesCommeLues = async (req, res, next) => {
+  try {
+    await prisma.notification.updateMany({
+      where: { utilisateurId: req.user.id, estLue: false },
+      data: { estLue: true },
+    });
+
+    res.status(200).json({ status: 'success', message: 'Toutes les notifications ont été marquées comme lues.' });
   } catch (error) {
     next(error);
   }

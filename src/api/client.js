@@ -2,9 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
     baseURL: 'http://localhost:5000/api',
-    headers: {
-        'Content-Type': 'application/json',
-    },
+    // Removed default 'Content-Type': 'application/json' so FormData can set its own boundary header
 });
 
 // Interceptor to attach JWT token from localStorage

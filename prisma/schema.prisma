@@ -25,6 +25,7 @@ enum Priorite {
   BASSE
   MOYENNE
   HAUTE
+  URGENTE
   CRITIQUE
 }
 
@@ -34,15 +35,15 @@ enum VisibiliteCommentaire {
 }
 
 model Utilisateur {
-  id              Int            @id @default(autoincrement())
+  id              Int             @id @default(autoincrement())
   nom             String
   prenom          String
-  email           String         @unique
+  email           String          @unique
   motDePasse      String
   telephone       String?
-  statutActif     Boolean        @default(true)
-  dateCreation    DateTime       @default(now())
-  role            Role           @default(EMPLOYE)
+  statutActif     Boolean         @default(true)
+  dateCreation    DateTime        @default(now())
+  role            Role            @default(EMPLOYE)
 
   // Sub-type specific fields (Optional)
   poste           String?        // For Employe
@@ -126,11 +127,11 @@ model Commentaire {
 }
 
 model Notification {
-  id           Int         @id @default(autoincrement())
-  message      String
-  estLue       Boolean     @default(false)
-  dateEnvoi    DateTime    @default(now())
+  id            Int      @id @default(autoincrement())
+  message       String
+  estLue        Boolean  @default(false)
+  dateEnvoi     DateTime @default(now())
 
   utilisateurId Int
-  utilisateur  Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
 }

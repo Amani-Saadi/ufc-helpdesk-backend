@@ -16,22 +16,22 @@ async function main() {
     }
   });
 
-  // 2. Create the 3 Categories
+  // 2. Create Categories
   await prisma.categorie.upsert({
     where: { nom: 'Maintenance' },
     update: {},
     create: {
       nom: 'Maintenance',
-      description: 'Maintenance du matériel et des équipements'
+      description: 'Maintenance du materiel et des equipements'
     }
   });
 
   await prisma.categorie.upsert({
-    where: { nom: 'Réseaux' },
+    where: { nom: 'Reseau' },
     update: {},
     create: {
-      nom: 'Réseaux',
-      description: 'Problèmes de connexion, routeurs et câblage'
+      nom: 'Reseau',
+      description: 'Problemes de connexion, routeurs et cablage'
     }
   });
 
@@ -40,7 +40,7 @@ async function main() {
     update: {},
     create: {
       nom: 'Site Web',
-      description: 'Problèmes liés à la plateforme web et aux accès'
+      description: 'Problemes lies a la plateforme web et aux acces'
     }
   });
 
@@ -73,23 +73,55 @@ async function main() {
     }
   });
 
-  // 5. Technician User
+  // 5. Technician - Maintenance
   await prisma.utilisateur.upsert({
-    where: { email: 'technicien@ufc.dz' },
-    update: { motDePasse: hashedPassword },
+    where: { email: 'maintenance.tech@ufc.dz' },
+    update: { motDePasse: hashedPassword, specialite: 'Maintenance' },
     create: {
       nom: 'Mansouri',
       prenom: 'Sami',
-      email: 'technicien@ufc.dz',
+      email: 'maintenance.tech@ufc.dz',
       motDePasse: hashedPassword,
       role: 'TECHNICIEN_IT',
       statutActif: true,
-      specialite: 'Réseaux & Matériel',
+      specialite: 'Maintenance',
       departementId: dept.id
     }
   });
 
-  console.log('Seed executed successfully with all categories!');
+  // 6. Technician - Reseau
+  await prisma.utilisateur.upsert({
+    where: { email: 'reseau.tech@ufc.dz' },
+    update: { motDePasse: hashedPassword, specialite: 'Reseau' },
+    create: {
+      nom: 'Brahimi',
+      prenom: 'Amine',
+      email: 'reseau.tech@ufc.dz',
+      motDePasse: hashedPassword,
+      role: 'TECHNICIEN_IT',
+      statutActif: true,
+      specialite: 'Reseau',
+      departementId: dept.id
+    }
+  });
+
+  // 7. Technician - Site Web
+  await prisma.utilisateur.upsert({
+    where: { email: 'web.tech@ufc.dz' },
+    update: { motDePasse: hashedPassword, specialite: 'Site Web' },
+    create: {
+      nom: 'Ziani',
+      prenom: 'Meriem',
+      email: 'web.tech@ufc.dz',
+      motDePasse: hashedPassword,
+      role: 'TECHNICIEN_IT',
+      statutActif: true,
+      specialite: 'Site Web',
+      departementId: dept.id
+    }
+  });
+
+  console.log('Seed executed successfully with all categories and 3 dedicated technicians!');
 }
 
 main()
