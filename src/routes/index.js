@@ -8,6 +8,7 @@ import adminRoutes from './admin.routes.js';
 import departmentRoutes from './department.routes.js';
 import categoryRoutes from './category.routes.js';
 import userRoutes from './user.routes.js';
+import centerRoutes from './center.routes.js'; // 1. Import it
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/admin', adminRoutes);
 router.use('/departments', departmentRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/users', userRoutes);
+router.use('/centers', centerRoutes); // 2. Register it at /centers
 
 export default router;

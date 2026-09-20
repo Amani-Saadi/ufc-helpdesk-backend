@@ -35,36 +35,44 @@ enum VisibiliteCommentaire {
 }
 
 model Utilisateur {
-  id              Int             @id @default(autoincrement())
-  nom             String
-  prenom          String
-  email           String          @unique
-  motDePasse      String
-  telephone       String?
-  statutActif     Boolean         @default(true)
-  dateCreation    DateTime        @default(now())
-  role            Role            @default(EMPLOYE)
+  id           Int       @id @default(autoincrement())
+  nom          String
+  prenom       String
+  email        String    @unique
+  motDePasse   String
+  telephone    String?
+  statutActif  Boolean   @default(true)
+  dateCreation DateTime  @default(now())
+  role         Role      @default(EMPLOYE)
 
   // Sub-type specific fields (Optional)
-  poste           String?        // For Employe
-  specialite      String?        // For TechnicienIT
-  disponible      Boolean?       @default(true) // For TechnicienIT
-  niveauPrivilege String?        // For Administrateur
+  poste          String? // For Employe
+  specialite     String? // For TechnicienIT
+  disponible     Boolean? @default(true) // For TechnicienIT
+  niveauPrivilege String? // For Administrateur
 
-  departementId   Int?
-  departement     Departement?   @relation(fields: [departementId], references: [id])
+  // Link for when a user account belongs directly to a specific Center/City
+  centreId       Int?
+  centre         Centre?   @relation("CentreUtilisateur", fields: [centreId], references: [id])
 
-  ticketsDeclares Ticket[]       @relation("EmployeTickets")
-  ticketsAssignes Ticket[]       @relation("TechnicienTickets")
+  // Relation for technicians managing specific centers (cities)
+  centres        Centre[]  @relation("TechnicienCentres")
+
+  ticketsDeclares Ticket[]  @relation("EmployeTickets")
+  ticketsAssignes Ticket[]  @relation("TechnicienTickets")
   commentaires    Commentaire[]
   notifications   Notification[]
 }
 
-model Departement {
-  id           Int           @id @default(autoincrement())
-  nom          String        @unique
-  codeBureau   String
-  utilisateurs Utilisateur[]
+model Centre {
+  id           Int          @id @default(autoincrement())
+  nom          String       @unique // e.g., "وهران", "الجزائر شرق", etc.
+  
+  technicienId Int?
+  technicien   Utilisateur? @relation("TechnicienCentres", fields: [technicienId], references: [id])
+
+  // Accounts belonging to this specific center
+  utilisateurs Utilisateur[] @relation("CentreUtilisateur")
   tickets      Ticket[]
 }
 
@@ -76,41 +84,41 @@ model Categorie {
 }
 
 model Ticket {
-  id             Int             @id @default(autoincrement())
+  id             Int          @id @default(autoincrement())
   titre          String
   description    String
-  priorite       Priorite        @default(MOYENNE)
-  statut         StatutTicket    @default(NOUVEAU_NON_VU)
-  dateCreation   DateTime        @default(now())
+  priorite       Priorite     @default(MOYENNE)
+  statut         StatutTicket @default(NOUVEAU_NON_VU)
+  dateCreation   DateTime     @default(now())
   dateResolution DateTime?
   dateCloture    DateTime?
 
   employeId      Int
-  employe        Utilisateur     @relation("EmployeTickets", fields: [employeId], references: [id])
+  employe        Utilisateur  @relation("EmployeTickets", fields: [employeId], references: [id])
 
   technicienId   Int?
-  technicien     Utilisateur?    @relation("TechnicienTickets", fields: [technicienId], references: [id])
+  technicien     Utilisateur? @relation("TechnicienTickets", fields: [technicienId], references: [id])
 
-  departementId  Int?
-  departement    Departement?    @relation(fields: [departementId], references: [id])
+  centreId       Int?
+  centre         Centre?      @relation(fields: [centreId], references: [id])
 
   categorieId    Int?
-  categorie      Categorie?      @relation(fields: [categorieId], references: [id])
+  categorie      Categorie?   @relation(fields: [categorieId], references: [id])
 
   fichiersJoints FichierJoint[]
   commentaires   Commentaire[]
 }
 
 model FichierJoint {
-  id           Int      @id @default(autoincrement())
-  nomFichier   String
+  id            Int      @id @default(autoincrement())
+  nomFichier    String
   cheminFichier String
-  typeFichier  String
-  tailleOctets BigInt
-  dateUpload   DateTime @default(now())
+  typeFichier   String
+  tailleOctets  BigInt
+  dateUpload    DateTime @default(now())
 
-  ticketId     Int
-  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId      Int
+  ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 }
 
 model Commentaire {

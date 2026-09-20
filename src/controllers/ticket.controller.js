@@ -3,8 +3,25 @@ import { creerNotification, notifierLesTechniciens } from '../utils/notification
 
 export const creerTicket = async (req, res, next) => {
   try {
-    const { titre, description, priorite, categorieId, departementId } = req.body;
+    const { titre, description, priorite, categorieId } = req.body;
     
+    // Extracted from authenticated user session
+    const employeId = req.user.id;
+    const userCentreId = req.user.centreId; // Linked directly to the center account
+
+    let technicienId = null;
+
+    // Automatically find the regional technician assigned to this center
+    if (userCentreId) {
+      const center = await prisma.centre.findUnique({
+        where: { id: parseInt(userCentreId) },
+        select: { technicienId: true }
+      });
+      if (center) {
+        technicienId = center.technicienId;
+      }
+    }
+
     const ticket = await prisma.ticket.create({
       data: {
         titre,
@@ -12,22 +29,35 @@ export const creerTicket = async (req, res, next) => {
         priorite: priorite || 'MOYENNE',
         statut: 'NOUVEAU_NON_VU',
         categorieId: categorieId ? parseInt(categorieId) : null,
-        departementId: departementId ? parseInt(departementId) : null,
-        employeId: req.user.id,
+        centreId: userCentreId ? parseInt(userCentreId) : null,
+        technicienId: technicienId ? parseInt(technicienId) : null,
+        employeId: employeId,
       },
       include: {
         categorie: true,
-        departement: true,
+        centre: {
+          include: {
+            technicien: true
+          }
+        },
         employe: {
           include: { 
-            departement: true 
+            centre: true 
           }
-        }
+        },
+        technicien: true
       }
     });
 
-    // Notify all technicians about the new ticket
-    await notifierLesTechniciens(`Nouveau ticket (#${ticket.id}): ${ticket.titre}`);
+    // Notify the assigned regional technician about the new ticket if available
+    if (ticket.technicienId) {
+      await creerNotification(
+        ticket.technicienId,
+        `Nouveau ticket de centre (#${ticket.id}): ${ticket.titre}`
+      );
+    } else {
+      await notifierLesTechniciens(`Nouveau ticket (#${ticket.id}): ${ticket.titre}`);
+    }
 
     res.status(201).json({ status: 'success', data: ticket });
   } catch (error) {
@@ -42,22 +72,25 @@ export const consulterTickets = async (req, res, next) => {
 
     // Role-based filtering
     if (req.user.role === 'EMPLOYE') {
-      whereClause.employeId = req.user.id;
+      // Center accounts see tickets belonging to their center or created by them
+      if (req.user.centreId) {
+        whereClause.OR = [
+          { employeId: req.user.id },
+          { centreId: req.user.centreId }
+        ];
+      } else {
+        whereClause.employeId = req.user.id;
+      }
     } else if (req.user.role === 'TECHNICIEN_IT') {
       const dbUser = await prisma.utilisateur.findUnique({
         where: { id: req.user.id }
       });
 
       const techSpecialty = dbUser?.specialite ? String(dbUser.specialite).trim() : '';
-      const techCategorieId = dbUser?.categorieId ? parseInt(dbUser.categorieId) : null;
       
       const orConditions = [
         { technicienId: req.user.id }
       ];
-
-      if (techCategorieId) {
-        orConditions.push({ categorieId: techCategorieId });
-      }
 
       if (techSpecialty) {
         orConditions.push({
@@ -86,12 +119,12 @@ export const consulterTickets = async (req, res, next) => {
       include: { 
         employe: { 
           include: { 
-            departement: true 
+            centre: true 
           } 
         }, 
         technicien: true, 
         categorie: true, 
-        departement: true 
+        centre: true 
       },
       orderBy: { dateCreation: 'desc' },
     });
@@ -109,8 +142,8 @@ export const marquerCommeVu = async (req, res, next) => {
       where: { id: parseInt(id) },
       include: { 
         categorie: true, 
-        departement: true, 
-        employe: { include: { departement: true } }, 
+        centre: true, 
+        employe: { include: { centre: true } }, 
         technicien: true 
       }
     });
@@ -123,8 +156,8 @@ export const marquerCommeVu = async (req, res, next) => {
         data: { statut: 'NOUVEAU_VU' },
         include: { 
           categorie: true, 
-          departement: true, 
-          employe: { include: { departement: true } }, 
+          centre: true, 
+          employe: { include: { centre: true } }, 
           technicien: true 
         }
       });
@@ -151,8 +184,8 @@ export const changerStatut = async (req, res, next) => {
       data: updateData,
       include: { 
         categorie: true, 
-        departement: true, 
-        employe: { include: { departement: true } }, 
+        centre: true, 
+        employe: { include: { centre: true } }, 
         technicien: true 
       }
     });
@@ -181,8 +214,8 @@ export const changerPriorite = async (req, res, next) => {
       data: { priorite },
       include: { 
         categorie: true, 
-        departement: true, 
-        employe: { include: { departement: true } }, 
+        centre: true, 
+        employe: { include: { centre: true } }, 
         technicien: true 
       }
     });
@@ -213,8 +246,8 @@ export const assignerTicket = async (req, res, next) => {
       },
       include: { 
         categorie: true, 
-        departement: true, 
-        employe: { include: { departement: true } }, 
+        centre: true, 
+        employe: { include: { centre: true } }, 
         technicien: true 
       }
     });
@@ -244,8 +277,8 @@ export const confirmerResolution = async (req, res, next) => {
       },
       include: { 
         categorie: true, 
-        departement: true, 
-        employe: { include: { departement: true } }, 
+        centre: true, 
+        employe: { include: { centre: true } }, 
         technicien: true 
       }
     });
@@ -299,7 +332,6 @@ export const ajouterCommentaire = async (req, res, next) => {
     });
 
     if (ticket) {
-      // If employee commented -> notify assigned technician. If technician commented -> notify employee.
       const destinataireId = req.user.id === ticket.employeId ? ticket.technicienId : ticket.employeId;
 
       if (destinataireId) {
@@ -319,7 +351,7 @@ export const ajouterCommentaire = async (req, res, next) => {
 export const telechargerFichier = async (req, res, next) => {
   try {
     const { fichierId } = req.params;
-    const fichier = await prisma.pieceJointe.findUnique({
+    const fichier = await prisma.fichierJoint.findUnique({
       where: { id: parseInt(fichierId) },
     });
 
@@ -327,7 +359,7 @@ export const telechargerFichier = async (req, res, next) => {
       return res.status(404).json({ message: 'Fichier non trouvé.' });
     }
 
-    res.download(fichier.chemin, fichier.nomOriginal);
+    res.download(fichier.cheminFichier, fichier.nomFichier);
   } catch (error) {
     next(error);
   }
