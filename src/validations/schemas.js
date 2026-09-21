@@ -1,29 +1,29 @@
 import { z } from 'zod';
 
 export const userCreateSchema = z.object({
-  nom: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
-  prenom: z.string().min(2, "Le prénom doit contenir au moins 2 caractères"),
+  nom: z.string().min(2, "Le nom doit contenir au moins 2 caractÃ¨res"),
+  prenom: z.string().min(2, "Le prÃ©nom doit contenir au moins 2 caractÃ¨res"),
   email: z.string().email("Adresse email invalide"),
-  motDePasse: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
+  motDePasse: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractÃ¨res"),
   telephone: z.string().optional(),
   role: z.enum(['EMPLOYE', 'TECHNICIEN_IT', 'ADMINISTRATEUR']),
   poste: z.string().optional(),
   specialite: z.string().optional(),
   niveauPrivilege: z.string().optional(),
-  departementId: z.number().int().positive().optional(),
+  centreId: z.number().int().positive().optional(), // RemplacÃ© departementId par centreId
 });
 
 export const ticketAssignSchema = z.object({
-  technicienId: z.number().int().positive("L'ID du technicien doit être un entier valide"),
+  technicienId: z.number().int().positive("L'ID du technicien doit Ãªtre un entier valide"),
 });
 
-export const departmentSchema = z.object({
-  nom: z.string().min(2, "Le nom du département est requis"),
+export const centerSchema = z.object({ // RemplacÃ© departmentSchema par centerSchema
+  nom: z.string().min(2, "Le nom du centre est requis"),
   codeBureau: z.string().min(1, "Le code bureau est requis"),
 });
 
 export const categorySchema = z.object({
-  nom: z.string().min(2, "Le nom de la catégorie est requis"),
+  nom: z.string().min(2, "Le nom de la catÃ©gorie est requis"),
   description: z.string().optional(),
 });
 

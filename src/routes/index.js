@@ -5,10 +5,9 @@ import fileRoutes from './file.routes.js';
 import commentRoutes from './comment.routes.js';
 import notificationRoutes from './notification.routes.js';
 import adminRoutes from './admin.routes.js';
-import departmentRoutes from './department.routes.js';
 import categoryRoutes from './category.routes.js';
 import userRoutes from './user.routes.js';
-import centerRoutes from './center.routes.js'; // 1. Import it
+import centerRoutes from './center.routes.js';
 
 const router = Router();
 
@@ -18,9 +17,8 @@ router.use('/', fileRoutes);
 router.use('/', commentRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
-router.use('/departments', departmentRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/users', userRoutes);
-router.use('/centers', centerRoutes); // 2. Register it at /centers
+router.use('/centers', centerRoutes);
 
 export default router;

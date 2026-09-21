@@ -5,6 +5,7 @@ import {
   modifierCommentaire, 
   supprimerCommentaire 
 } from '../controllers/comment.controller.js';
+// Changez ceci :
 import { authenticate } from '../middleware/auth.middleware.js';
 
 const router = Router();

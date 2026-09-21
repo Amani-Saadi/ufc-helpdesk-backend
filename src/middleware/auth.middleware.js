@@ -5,7 +5,7 @@ export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Accès non autorisé. Jeton manquant.' });
+      return res.status(401).json({ message: 'Accï¿½s non autorisï¿½. Jeton manquant.' });
     }
 
     const token = authHeader.split(' ')[1];
@@ -17,20 +17,20 @@ export const authenticate = async (req, res, next) => {
     });
 
     if (!user || !user.statutActif) {
-      return res.status(401).json({ message: 'Compte inactif ou utilisateur non trouvé.' });
+      return res.status(401).json({ message: 'Compte inactif ou utilisateur non trouvï¿½.' });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    return res.status(401).json({ message: 'Jeton invalide ou expiré.' });
+    return res.status(401).json({ message: 'Jeton invalide ou expirï¿½.' });
   }
 };
 
 export const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user || !allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Accès interdit. Privilèges insuffisants.' });
+      return res.status(403).json({ message: 'Accï¿½s interdit. Privilï¿½ges insuffisants.' });
     }
     next();
   };

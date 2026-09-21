@@ -13,7 +13,6 @@ import {
   consulterCommentaires
 } from '../controllers/ticket.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
-
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
 

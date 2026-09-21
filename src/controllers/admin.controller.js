@@ -14,17 +14,17 @@ export const listerUtilisateurs = async (req, res, next) => {
         telephone: true,
         poste: true,
         specialite: true,
-        niveauPrivilege: true,
-        statutActif: true,
-        departementId: true,
-        departement: {
+        niveauPrivilege: true, // CORRIGÉ : camelCase au lieu de niveau_privilege
+        statutActif: true,     // CORRIGÉ : camelCase au lieu de statut_actif
+        centreId: true,        // CORRIGÉ : camelCase au lieu de centre_id
+        centre: {
           select: {
             id: true,
-            nom: true
-          }
-        }
+            nom: true,
+          },
+        },
       },
-      orderBy: { id: 'desc' }
+      orderBy: { id: 'desc' },
     });
 
     res.status(200).json({ status: 'success', data: users });
@@ -33,10 +33,34 @@ export const listerUtilisateurs = async (req, res, next) => {
   }
 };
 
+// Récupérer la liste de tous les centres
+export const listerCentres = async (req, res, next) => {
+  try {
+    const centres = await prisma.centre.findMany({
+      orderBy: { nom: 'asc' },
+    });
+
+    res.status(200).json({ status: 'success', data: centres });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Créer un utilisateur (Employé, Technicien, etc.)
 export const creerUtilisateur = async (req, res, next) => {
   try {
-    const { nom, prenom, email, motDePasse, role, telephone, poste, specialite, niveauPrivilege, departementId } = req.body;
+    const {
+      nom,
+      prenom,
+      email,
+      motDePasse,
+      role,
+      telephone,
+      poste,
+      specialite,
+      niveauPrivilege,
+      centreId,
+    } = req.body;
 
     const existingUser = await prisma.utilisateur.findUnique({ where: { email } });
     if (existingUser) {
@@ -55,8 +79,8 @@ export const creerUtilisateur = async (req, res, next) => {
         telephone,
         poste,
         specialite,
-        niveauPrivilege,
-        departementId: departementId ? parseInt(departementId, 10) : undefined,
+        niveauPrivilege, // CORRIGÉ
+        centreId: centreId ? parseInt(centreId, 10) : null, // CORRIGÉ : centreId au lieu de centre_id
       },
     });
 
@@ -78,34 +102,34 @@ export const desactiverUtilisateur = async (req, res, next) => {
     }
 
     const targetUser = await prisma.utilisateur.findUnique({
-      where: { id: userId }
+      where: { id: userId },
     });
 
     if (!targetUser) {
       return res.status(404).json({ status: 'fail', message: "Utilisateur non trouvé." });
     }
 
-    // Bascule dynamique du statut (si actif -> désactivé, si désactivé -> actif)
+    // Bascule dynamique du statut
     const currentStatus = targetUser.statutActif ?? true;
     const newStatus = !currentStatus;
 
     const updatedUser = await prisma.utilisateur.update({
       where: { id: userId },
-      data: { statutActif: newStatus },
+      data: { statutActif: newStatus }, // CORRIGÉ : statutActif
       select: {
         id: true,
         nom: true,
         prenom: true,
         email: true,
         role: true,
-        statutActif: true
-      }
+        statutActif: true, // CORRIGÉ : statutActif
+      },
     });
 
-    res.status(200).json({ 
-      status: 'success', 
+    res.status(200).json({
+      status: 'success',
       message: newStatus ? "Utilisateur activé avec succès." : "Utilisateur désactivé avec succès.",
-      data: updatedUser 
+      data: updatedUser,
     });
   } catch (error) {
     next(error);
@@ -121,7 +145,7 @@ export const affecterTicket = async (req, res, next) => {
     const ticket = await prisma.ticket.update({
       where: { id: parseInt(ticketId, 10) },
       data: {
-        technicienId: parseInt(technicienId, 10),
+        technicienId: parseInt(technicienId, 10), // CORRIGÉ : technicienId si nécessaire
         statut: 'EN_COURS',
       },
     });
@@ -132,12 +156,17 @@ export const affecterTicket = async (req, res, next) => {
   }
 };
 
-// Ajouter un département
-export const ajouterDepartement = async (req, res, next) => {
+// Ajouter un centre
+export const ajouterCentre = async (req, res, next) => {
   try {
     const { nom, codeBureau } = req.body;
-    const dept = await prisma.departement.create({ data: { nom, codeBureau } });
-    res.status(201).json({ status: 'success', data: dept });
+    const centre = await prisma.centre.create({
+      data: {
+        nom,
+        codeBureau, // CORRIGÉ : codeBureau au lieu de code_bureau
+      },
+    });
+    res.status(201).json({ status: 'success', data: centre });
   } catch (error) {
     next(error);
   }
