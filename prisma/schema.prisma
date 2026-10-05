@@ -67,7 +67,9 @@ model Utilisateur {
 model Centre {
   id           Int          @id @default(autoincrement())
   nom          String       @unique // e.g., "وهران", "الجزائر شرق", etc.
-  
+  codeBureau   String?
+  statutActif  Boolean      @default(true)
+
   technicienId Int?
   technicien   Utilisateur? @relation("TechnicienCentres", fields: [technicienId], references: [id])
 
