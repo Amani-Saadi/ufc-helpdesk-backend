@@ -1,4 +1,3 @@
-
 import prisma from '../config/database.js';
 import {
   creerNotification,
@@ -744,102 +743,82 @@ export const confirmerResolution =
     }
   };
 
-export const consulterCommentaires =
-  async (
-    req,
-    res,
-    next
-  ) => {
-    try {
-      const { id } =
-        req.params;
+// Only expose safe author fields (never the password hash)
+const AUTEUR_SELECT = {
+  id: true,
+  nom: true,
+  prenom: true,
+  email: true,
+  role: true
+};
 
-      const commentaires =
-        await prisma.commentaire.findMany({
-          where: {
-            ticketId:
-              parseInt(id)
-          },
-          include: {
-            auteur: true
-          },
-          orderBy: {
-            dateCreation:
-              'asc'
-          }
-        });
-
-      res.status(200).json({
-        status: 'success',
-        data: commentaires
-      });
-    } catch (error) {
-      next(error);
+export const consulterCommentaires = async (req, res, next) => {
+  try {
+    const ticketId = parseInt(req.params.id, 10);
+    if (Number.isNaN(ticketId)) {
+      return res.status(400).json({ status: 'error', message: 'ID de ticket invalide' });
     }
-  };
 
-export const ajouterCommentaire =
-  async (
-    req,
-    res,
-    next
-  ) => {
+    const commentaires = await prisma.commentaire.findMany({
+      where: { ticketId },
+      include: { auteur: { select: AUTEUR_SELECT } },
+      orderBy: { dateCreation: 'asc' }
+    });
+
+    res.status(200).json({ status: 'success', data: commentaires });
+  } catch (error) {
+    console.error('[consulterCommentaires]', error);
+    next(error);
+  }
+};
+
+export const ajouterCommentaire = async (req, res, next) => {
+  try {
+    const ticketId = parseInt(req.params.id, 10);
+    if (Number.isNaN(ticketId)) {
+      return res.status(400).json({ status: 'error', message: 'ID de ticket invalide' });
+    }
+
+    const contenu = String(req.body?.contenu ?? req.body?.texte ?? req.body?.content ?? '').trim();
+    if (!contenu) {
+      return res.status(400).json({ status: 'error', message: 'Le contenu du commentaire est requis' });
+    }
+
+    // Check the ticket first: avoids a foreign-key crash on a bad ticket id
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { employeId: true, technicienId: true, titre: true }
+    });
+    if (!ticket) {
+      return res.status(404).json({ status: 'error', message: 'Ticket non trouvé' });
+    }
+
+    const commentaire = await prisma.commentaire.create({
+      data: { contenu, ticketId, auteurId: req.user.id },
+      include: { auteur: { select: AUTEUR_SELECT } }
+    });
+
+    // Notification is best-effort: if it fails, the comment is still saved
+    // and the user must not see an error for a comment that actually exists.
     try {
-      const { id } =
-        req.params;
-
-      const { contenu } =
-        req.body;
-
-      const commentaire =
-        await prisma.commentaire.create({
-          data: {
-            contenu,
-            ticketId:
-              parseInt(id),
-            auteurId:
-              req.user.id
-          },
-          include: {
-            auteur: true
-          }
-        });
-
-      const ticket =
-        await prisma.ticket.findUnique({
-          where: {
-            id: parseInt(id)
-          },
-          select: {
-            employeId: true,
-            technicienId: true,
-            titre: true
-          }
-        });
-
-      if (ticket) {
-        const destinataireId =
-          req.user.id ===
-          ticket.employeId
-            ? ticket.technicienId
-            : ticket.employeId;
-
-        if (destinataireId) {
-          await creerNotification(
-            destinataireId,
-            `Nouveau commentaire sur le ticket #${id} (${ticket.titre})`
-          );
-        }
+      const destinataireId =
+        req.user.id === ticket.employeId ? ticket.technicienId : ticket.employeId;
+      if (destinataireId) {
+        await creerNotification(
+          destinataireId,
+          `Nouveau commentaire sur le ticket #${ticketId} (${ticket.titre})`
+        );
       }
-
-      res.status(201).json({
-        status: 'success',
-        data: commentaire
-      });
-    } catch (error) {
-      next(error);
+    } catch (notifError) {
+      console.error('[ajouterCommentaire] notification failed:', notifError);
     }
-  };
+
+    res.status(201).json({ status: 'success', data: commentaire });
+  } catch (error) {
+    console.error('[ajouterCommentaire]', error);
+    next(error);
+  }
+};
 
 export const telechargerFichier =
   async (
