@@ -21,10 +21,10 @@ router.post('/login', seConnecter);
 // Change password for the authenticated user
 router.get('/me', authenticate, obtenirProfil);
 
-router.put(
-  '/changer-mot-de-passe',
-  authenticate,
-  modifierMotDePasse
-);
+// Accept the French path and the path the frontends call (/change-password),
+// with PUT and PATCH.
+const changePasswordPaths = ['/changer-mot-de-passe', '/change-password'];
+router.put(changePasswordPaths, authenticate, modifierMotDePasse);
+router.patch(changePasswordPaths, authenticate, modifierMotDePasse);
 
 export default router;

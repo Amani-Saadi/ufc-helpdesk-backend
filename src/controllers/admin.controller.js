@@ -125,7 +125,7 @@ export const listerTechniciensAvecStats = async (req, res, next) => {
         centres: centresSelect,
         _count: {
           select: {
-            ticketsAssignee: true,
+            ticketsAssignes: true,
           },
         },
       },
@@ -740,22 +740,9 @@ export const ajouterCentreTechnicien = async (req, res, next) => {
      * Keep both relations synchronized.
      */
     await prisma.$transaction(async (tx) => {
-      // Remove this technician as the direct technician
-      // from any previous center.
-      await tx.centre.updateMany({
-        where: {
-          technicienId: techId,
-          id: {
-            not: centreId,
-          },
-        },
-        data: {
-          technicienId: null,
-        },
-      });
-
-      // If another technician was assigned to this center,
-      // remove the direct assignment before assigning the new one.
+      // A technician keeps all of his centres: only attach the new one.
+      // (Centre.technicienId is the FK behind Utilisateur.centres, so this
+      // single update is enough to keep the many-to-many relation in sync.)
       await tx.centre.update({
         where: {
           id: centreId,
@@ -765,29 +752,17 @@ export const ajouterCentreTechnicien = async (req, res, next) => {
         },
       });
 
-      // Also update the technician's primary center.
-      await tx.utilisateur.update({
-        where: {
-          id: techId,
-        },
-        data: {
-          centreId,
-        },
-      });
-
-      // Keep the many-to-many relation.
-      await tx.utilisateur.update({
-        where: {
-          id: techId,
-        },
-        data: {
-          centres: {
-            connect: {
-              id: centreId,
-            },
+      // Set the primary centre only if the technician has none yet.
+      if (!tech.centreId) {
+        await tx.utilisateur.update({
+          where: {
+            id: techId,
           },
-        },
-      });
+          data: {
+            centreId,
+          },
+        });
+      }
     });
 
     const updated = await prisma.utilisateur.findUnique({
@@ -970,6 +945,11 @@ export const supprimerCentreTechnicien = async (req, res, next) => {
       });
     }
 
+    const tech = await prisma.utilisateur.findUnique({
+      where: { id: techId },
+      select: { id: true, centreId: true },
+    });
+
     if (centre.technicienId !== techId) {
       return res.status(400).json({
         status: 'fail',
@@ -997,9 +977,21 @@ export const supprimerCentreTechnicien = async (req, res, next) => {
               id: centreId,
             },
           },
-          centreId: null,
         },
       });
+
+      // If the removed centre was the primary one, promote another remaining centre (or none).
+      if (tech.centreId === centreId) {
+        const remaining = await tx.centre.findFirst({
+          where: { technicienId: techId },
+          orderBy: { nom: 'asc' },
+        });
+
+        await tx.utilisateur.update({
+          where: { id: techId },
+          data: { centreId: remaining ? remaining.id : null },
+        });
+      }
     });
 
     const updated = await prisma.utilisateur.findUnique({

@@ -36,20 +36,32 @@ export const seConnecter = async (req, res, next) => {
 
     const normalizedEmail = email.trim();
 
-    // Find user without modifying the database
+    // Find user
     const user = await prisma.utilisateur.findUnique({
       where: { email: normalizedEmail },
       include: {
         centre: {
-          select: { id: true, nom: true, codeBureau: true, statutActif: true }
+          select: {
+            id: true,
+            nom: true,
+            codeBureau: true,
+            statutActif: true
+          }
         }
       }
     });
 
-    // Temporary diagnostic logs (never log the password)
+    // Safe diagnostic logs
+    // Never log the actual password.
     console.log('Login email:', normalizedEmail);
     console.log('User found:', !!user);
     console.log('Password hash exists:', !!user?.motDePasse);
+    console.log('Password type:', typeof motDePasse);
+    console.log('Password length:', motDePasse?.length);
+    console.log(
+      'Password trimmed length:',
+      motDePasse?.trim().length
+    );
 
     if (!user || !user.motDePasse) {
       return res.status(401).json({
@@ -57,7 +69,7 @@ export const seConnecter = async (req, res, next) => {
       });
     }
 
-    // Check password against the existing stored hash
+    // Compare received password with stored hash
     let passwordMatch = false;
 
     try {
@@ -66,13 +78,29 @@ export const seConnecter = async (req, res, next) => {
         user.motDePasse
       );
     } catch (compareError) {
-      console.error('Password comparison error:', compareError.message);
+      console.error(
+        'Password comparison error:',
+        compareError.message
+      );
+
       return res.status(401).json({
         message: 'Email ou mot de passe incorrect.'
       });
     }
 
     console.log('Password match:', passwordMatch);
+
+    // Diagnostic only:
+    // Compare the known seed password directly with the same stored hash.
+    const hardcodedPasswordMatch = await bcrypt.compare(
+      'Password123',
+      user.motDePasse
+    );
+
+    console.log(
+      'Hardcoded Password123 match:',
+      hardcodedPasswordMatch
+    );
 
     if (!passwordMatch) {
       return res.status(401).json({
@@ -93,22 +121,26 @@ export const seConnecter = async (req, res, next) => {
 
     // Verify JWT configuration
     if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET is not configured in .env');
+      throw new Error(
+        'JWT_SECRET is not configured in .env'
+      );
     }
 
-    // Generate token
+    // Generate JWT token
     const token = jwt.sign(
       {
         userId: user.id,
         email: user.email,
         role: userRole,
         centreId: user.centreId,
-        centre: user.centre ? {
-          id: user.centre.id,
-          nom: user.centre.nom,
-          codeBureau: user.centre.codeBureau,
-          statutActif: user.centre.statutActif
-        } : null
+        centre: user.centre
+          ? {
+              id: user.centre.id,
+              nom: user.centre.nom,
+              codeBureau: user.centre.codeBureau,
+              statutActif: user.centre.statutActif
+            }
+          : null
       },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
@@ -125,12 +157,14 @@ export const seConnecter = async (req, res, next) => {
         email: user.email,
         role: userRole,
         centreId: user.centreId,
-        centre: user.centre ? {
-          id: user.centre.id,
-          nom: user.centre.nom,
-          codeBureau: user.centre.codeBureau,
-          statutActif: user.centre.statutActif
-        } : null
+        centre: user.centre
+          ? {
+              id: user.centre.id,
+              nom: user.centre.nom,
+              codeBureau: user.centre.codeBureau,
+              statutActif: user.centre.statutActif
+            }
+          : null
       }
     });
   } catch (error) {
@@ -139,14 +173,23 @@ export const seConnecter = async (req, res, next) => {
 };
 
 // CHANGE PASSWORD
-export const modifierMotDePasse = async (req, res, next) => {
+export const modifierMotDePasse = async (
+  req,
+  res,
+  next
+) => {
   try {
-    const {
-      ancienMotDePasse,
-      nouveauMotDePasse
-    } = req.body;
+    // Accept both French and English field names (the frontends send either).
+    const ancienMotDePasse =
+      req.body.ancienMotDePasse ??
+      req.body.oldPassword ??
+      req.body.currentPassword;
+    const nouveauMotDePasse =
+      req.body.nouveauMotDePasse ??
+      req.body.newPassword;
 
-    const userId = req.user?.id ?? req.user?.userId;
+    const userId =
+      req.user?.id ?? req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -154,7 +197,10 @@ export const modifierMotDePasse = async (req, res, next) => {
       });
     }
 
-    if (!ancienMotDePasse || !nouveauMotDePasse) {
+    if (
+      !ancienMotDePasse ||
+      !nouveauMotDePasse
+    ) {
       return res.status(400).json({
         message: 'Veuillez remplir tous les champs.'
       });
@@ -162,13 +208,15 @@ export const modifierMotDePasse = async (req, res, next) => {
 
     if (nouveauMotDePasse.length < 6) {
       return res.status(400).json({
-        message: 'Le nouveau mot de passe doit contenir au moins 6 caractères.'
+        message:
+          'Le nouveau mot de passe doit contenir au moins 6 caractères.'
       });
     }
 
-    const user = await prisma.utilisateur.findUnique({
-      where: { id: Number(userId) }
-    });
+    const user =
+      await prisma.utilisateur.findUnique({
+        where: { id: Number(userId) }
+      });
 
     if (!user) {
       return res.status(404).json({
@@ -178,14 +226,16 @@ export const modifierMotDePasse = async (req, res, next) => {
 
     if (!user.motDePasse) {
       return res.status(400).json({
-        message: 'Aucun mot de passe enregistré pour cet utilisateur.'
+        message:
+          'Aucun mot de passe enregistré pour cet utilisateur.'
       });
     }
 
-    const passwordMatch = await bcrypt.compare(
-      ancienMotDePasse,
-      user.motDePasse
-    );
+    const passwordMatch =
+      await bcrypt.compare(
+        ancienMotDePasse,
+        user.motDePasse
+      );
 
     if (!passwordMatch) {
       return res.status(400).json({
@@ -193,10 +243,11 @@ export const modifierMotDePasse = async (req, res, next) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(
-      nouveauMotDePasse,
-      10
-    );
+    const hashedPassword =
+      await bcrypt.hash(
+        nouveauMotDePasse,
+        10
+      );
 
     await prisma.utilisateur.update({
       where: { id: user.id },
@@ -206,7 +257,8 @@ export const modifierMotDePasse = async (req, res, next) => {
     });
 
     return res.status(200).json({
-      message: 'Mot de passe modifié avec succès.'
+      message:
+        'Mot de passe modifié avec succès.'
     });
   } catch (error) {
     next(error);
@@ -214,39 +266,61 @@ export const modifierMotDePasse = async (req, res, next) => {
 };
 
 // CURRENT AUTHENTICATED USER
-export const obtenirProfil = async (req, res, next) => {
+export const obtenirProfil = async (
+  req,
+  res,
+  next
+) => {
   try {
-    const userId = Number(req.user?.id ?? req.user?.userId);
+    const userId = Number(
+      req.user?.id ?? req.user?.userId
+    );
 
     if (!userId) {
-      return res.status(401).json({ message: 'Utilisateur non authentifié.' });
+      return res.status(401).json({
+        message:
+          'Utilisateur non authentifié.'
+      });
     }
 
-    const user = await prisma.utilisateur.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        nom: true,
-        prenom: true,
-        email: true,
-        role: true,
-        telephone: true,
-        poste: true,
-        specialite: true,
-        statutActif: true,
-        centreId: true,
-        centre: {
-          select: { id: true, nom: true, codeBureau: true, statutActif: true }
+    const user =
+      await prisma.utilisateur.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          nom: true,
+          prenom: true,
+          email: true,
+          role: true,
+          telephone: true,
+          poste: true,
+          specialite: true,
+          statutActif: true,
+          centreId: true,
+          centre: {
+            select: {
+              id: true,
+              nom: true,
+              codeBureau: true,
+              statutActif: true
+            }
+          }
         }
-      }
-    });
+      });
 
     if (!user || !user.statutActif) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé ou compte inactif.' });
+      return res.status(404).json({
+        message:
+          'Utilisateur non trouvé ou compte inactif.'
+      });
     }
 
-    return res.status(200).json({ status: 'success', data: user });
+    return res.status(200).json({
+      status: 'success',
+      data: user
+    });
   } catch (error) {
     next(error);
   }
 };
+
